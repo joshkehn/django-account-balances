@@ -1,10 +1,5 @@
-Managed accounts for Django
+Accounts credit tracking for Django
 ===========================
-
-A 'managed account' is an allocation of money that can be debited and credited.  This 
-package provides managed account functionality for use with the e-commerce framework 
-[Oscar](https://github.com/tangentlabs/django-oscar).  It can also be used
-standalone without Oscar.
 
 Accounts can be used to implement a variety of interesting components, including:
 
@@ -22,11 +17,6 @@ trail of all transactional activity.
 
 If your project manages money, you should be using a library like this.  Your
 finance people will thank you.
-
-[![Build Status](https://travis-ci.org/tangentlabs/django-oscar-accounts.png)](https://travis-ci.org/tangentlabs/django-oscar-accounts)
-[![Coverage Status](https://coveralls.io/repos/tangentlabs/django-oscar-accounts/badge.png?branch=master)](https://coveralls.io/r/tangentlabs/django-oscar-accounts)
-[![Latest Version](https://pypip.in/v/django-oscar-accounts/badge.png)](https://crate.io/packages/django-oscar-accounts/)
-[![Number of Downloads](https://pypip.in/d/django-oscar-accounts/badge.png)](https://crate.io/packages/django-oscar-accounts/)
 
 Features
 --------
@@ -46,45 +36,20 @@ Features
 * An account can have a start and end date to allow its usage in a limited time
   window
 
-* An account can be restricted so that it can only be used to pay for a range of
-  products.
-
 * Accounts can be categorised
-
-Screenshots
------------
-
-[![Dashboard account list](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-accounts.thumb.png)](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-accounts.png)
-[![Create new account ](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-form.thumb.png)](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-form.png)
-[![Dashboard transfer list](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-transfers.thumb.png)](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-transfers.png)
-[![Dashboard account detail](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-detail.thumb.png)](https://github.com/tangentlabs/django-oscar-accounts/raw/master/screenshots/dashboard-detail.png)
 
 Installation
 ------------
 
-Install using pip:
+Install with:
 
-```bash
-	pip install django-oscar-accounts
-```
+    pip install django-account-balances
 
-and add `accounts` to `INSTALLED_APPS`.  Runnning ``manage.py syncdb`` will create the appropriate database
-tables and also initial some core accounts and account-types.  The names of these accounts can be controlled using
-settings (see below).
+Then add `accounts` to your `INSTALLED_APPS` and run
 
-If running with Oscar, add an additional path to your `TEMPLATE_DIRS`:
-``` python
-from accounts import TEMPLATE_DIR as ACCOUNTS_TEMPLATE_DIR
+    ./manage migrate accounts
 
-TEMPLATE_DIRS = (
-	...
-	ACCOUNTS_TEMPLATE_DIR)
-```
-
-This allows the templates to be customised by overriding blocks instead of
-replacing the entire template.
-
-You should also set-up a cronjob that calls:
+Finally, set-up a daily cronjob that calls:
 
     ./manage.py close_expired_accounts
 
@@ -244,9 +209,6 @@ def redeem(order_number, user, amount):
 As you can see, there is some careful handling of the scenario where not all transfers can be 
 executed.
 
-If you using Oscar then ensure that you create an `OrderSource` instance for every transfer (rather than
-aggregating them all into one).  This will provide better audit information.  Here's some example code:
-
 ``` python
 
     try:
@@ -354,3 +316,8 @@ Fork repo, set-up virtualenv and run:
 Run tests with:
     
     ./runtests.py
+
+History
+-------
+
+This project used to depend on the e-commerce framework [Oscar](https://github.com/tangentlabs/django-oscar) in a number of places.  You may be interested in the upstream repos if you want Oscar integration. This repo was forked off for people who want account balances without Oscar integration.
