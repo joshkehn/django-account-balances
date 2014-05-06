@@ -5,15 +5,19 @@ from south.db import db
 from south.v2 import SchemaMigration
 from django.db import models
 
+# Import style and migration updates from http://kevindias.com/writing/django-custom-user-models-south-and-reusable-apps/
+# Save User import for Django < 1.5
 try:
-    from oscar.core.compat import AUTH_USER_MODEL, AUTH_USER_MODEL_NAME
-except ImportError:
-    AUTH_USER_MODEL = getattr(settings, 'AUTH_USER_MODEL', 'auth.User')
-    try:
-        AUTH_USER_APP_LABEL, AUTH_USER_MODEL_NAME = AUTH_USER_MODEL.split('.')
-    except ValueError:
-        raise ImproperlyConfigured("AUTH_USER_MODEL must be of the form 'app_label.model_name'")
+    from django.contrib.auth import get_user_model
+except:
+    from django.contrib.auth.models import User
+else:
+    User = get_user_model()
 
+# With the default User model these will be 'auth.User' and 'auth.user'
+# so instead of using orm['auth.User'] we can use orm[user_orm_label]
+user_orm_label = '%s.%s' % (User._meta.app_label, User._meta.object_name)
+user_model_label = '%s.%s' % (User._meta.app_label, User._meta.module_name)
 
 class Migration(SchemaMigration):
 
@@ -36,7 +40,7 @@ class Migration(SchemaMigration):
             ('description', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
             ('account_type', self.gf('django.db.models.fields.related.ForeignKey')(related_name='accounts', null=True, to=orm['accounts.AccountType'])),
             ('code', self.gf('django.db.models.fields.CharField')(max_length=128, unique=True, null=True, blank=True)),
-            ('primary_user', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='accounts', null=True, on_delete=models.SET_NULL, to=orm[AUTH_USER_MODEL])),
+            ('primary_user', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='accounts', null=True, on_delete=models.SET_NULL, to=orm[user_orm_label])),
             ('status', self.gf('django.db.models.fields.CharField')(default='Open', max_length=32)),
             ('credit_limit', self.gf('django.db.models.fields.DecimalField')(default='0.00', null=True, max_digits=12, decimal_places=2, blank=True)),
             ('balance', self.gf('django.db.models.fields.DecimalField')(default='0.00', null=True, max_digits=12, decimal_places=2)),
@@ -57,7 +61,7 @@ class Migration(SchemaMigration):
             ('parent', self.gf('django.db.models.fields.related.ForeignKey')(related_name='related_transfers', null=True, to=orm['accounts.Transfer'])),
             ('merchant_reference', self.gf('django.db.models.fields.CharField')(max_length=128, null=True)),
             ('description', self.gf('django.db.models.fields.CharField')(max_length=256, null=True)),
-            ('user', self.gf('django.db.models.fields.related.ForeignKey')(related_name='transfers', null=True, on_delete=models.SET_NULL, to=orm[AUTH_USER_MODEL])),
+            ('user', self.gf('django.db.models.fields.related.ForeignKey')(related_name='transfers', null=True, on_delete=models.SET_NULL, to=orm[user_orm_label])),
             ('username', self.gf('django.db.models.fields.CharField')(max_length=128)),
             ('date_created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
         ))
@@ -91,7 +95,7 @@ class Migration(SchemaMigration):
         db.create_table(u'accounts_accountsecondaryusers', (
             (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
             ('account', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['accounts.Account'])),
-            ('user', self.gf('django.db.models.fields.related.ForeignKey')(to=orm[AUTH_USER_MODEL])),
+            ('user', self.gf('django.db.models.fields.related.ForeignKey')(to=orm[user_orm_label])),
         ))
         db.send_create_signal(u'accounts', ['AccountSecondaryUsers'])
 
@@ -132,8 +136,8 @@ class Migration(SchemaMigration):
             'end_date': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '128', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'primary_user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'accounts'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['{}']".format(AUTH_USER_MODEL)}),
-            'secondary_users': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['{}']".format(AUTH_USER_MODEL), 'symmetrical': 'False', 'through': u"orm['accounts.AccountSecondaryUsers']", 'blank': 'True'}),
+            'primary_user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'accounts'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['{}']".format(user_orm_label)}),
+            'secondary_users': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['{}']".format(user_orm_label), 'symmetrical': 'False', 'through': u"orm['accounts.AccountSecondaryUsers']", 'blank': 'True'}),
             'start_date': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
             'status': ('django.db.models.fields.CharField', [], {'default': "'Open'", 'max_length': '32'})
         },
@@ -141,7 +145,7 @@ class Migration(SchemaMigration):
             'Meta': {'object_name': 'AccountSecondaryUsers'},
             'account': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['accounts.Account']"}),
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['{}']".format(AUTH_USER_MODEL)})
+            'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['{}']".format(user_orm_label)})
         },
         u'accounts.accounttype': {
             'Meta': {'object_name': 'AccountType'},
@@ -180,7 +184,7 @@ class Migration(SchemaMigration):
             'parent': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'related_transfers'", 'null': 'True', 'to': u"orm['accounts.Transfer']"}),
             'reference': ('django.db.models.fields.CharField', [], {'max_length': '64', 'unique': 'True', 'null': 'True'}),
             'source': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'source_transfers'", 'to': u"orm['accounts.Account']"}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'transfers'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['{}']".format(AUTH_USER_MODEL)}),
+            'user': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'transfers'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['{}']".format(user_orm_label)}),
             'username': ('django.db.models.fields.CharField', [], {'max_length': '128'})
         },
         u'auth.group': {
@@ -196,9 +200,18 @@ class Migration(SchemaMigration):
             u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
             'name': ('django.db.models.fields.CharField', [], {'max_length': '50'})
         },
-        'auth.user': {
-            'Meta': {'object_name': 'User'},
-            'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
+
+        # Declare this dynamically so it will work with custom user models.
+        user_model_label: {
+            'Meta': {
+                'object_name': User.__name__,
+                'db_table': "'%s'" % User._meta.db_table
+            },
+            User._meta.pk.attname: (
+                'django.db.models.fields.AutoField', [],
+                {'primary_key': 'True',
+                'db_column': "'%s'" % User._meta.pk.column}
+            ),
         },
         u'contenttypes.contenttype': {
             'Meta': {'ordering': "('name',)", 'unique_together': "(('app_label', 'model'),)", 'object_name': 'ContentType', 'db_table': "'django_content_type'"},
