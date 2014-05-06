@@ -21,11 +21,6 @@ user_model_label = '%s.%s' % (User._meta.app_label, User._meta.module_name)
 
 class Migration(SchemaMigration):
 
-    depends_on = (
-        ('offer', '0001_initial'),
-        ('catalogue', '0001_initial'),
-    )
-
     def forwards(self, orm):
         # Adding model 'AccountType'
         db.create_table(u'accounts_accounttype', (
