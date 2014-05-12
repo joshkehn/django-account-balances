@@ -152,7 +152,7 @@ class Account(models.Model):
             return self.name
         if self.primary_user:
             return u"{0} #{1}".format(self.primary_user, self.pk)
-        return _(u'Anonymous Account')
+        return u'Anonymous Account'
 
     def is_active(self):
         """Returns whether or not the account is active. This is dependant on
