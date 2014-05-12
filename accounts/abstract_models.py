@@ -7,6 +7,7 @@ from django.db import models
 from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
+from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
 from treebeard.mp_tree import MP_Node
 
@@ -19,8 +20,10 @@ except ImportError:
 
 
 class ActiveAccountManager(models.Manager):
+    """Manager for active accounts."""
 
     def get_query_set(self):
+        """Returns all active accounts based on start/end date."""
         now = timezone.now()
         qs = super(ActiveAccountManager, self).get_query_set()
         return qs.filter(
@@ -31,37 +34,47 @@ class ActiveAccountManager(models.Manager):
 
 
 class ExpiredAccountManager(models.Manager):
+    """Manager for expired accounts."""
 
     def get_query_set(self):
+        """Returns all expired accounts based on end date."""
         now = timezone.now()
         qs = super(ExpiredAccountManager, self).get_query_set()
         return qs.filter(end_date__lt=now)
 
 
+@python_2_unicode_compatible
 class AccountType(MP_Node):
+    """Handles nested account types and allows them to be constructed in a tree
+    -like fashion."""
+
     code = models.CharField(max_length=128, unique=True, null=True, blank=True)
     name = models.CharField(max_length=128)
 
     class Meta:
         abstract = True
 
-    def __unicode__(self):
+    def __str__(self):
         return self.name
 
     @property
     def full_name(self):
+        """Returns slash-separated names for all ancestors and this
+        instance."""
         names = [a.name for a in self.get_ancestors()]
         names.append(self.name)
-        return " / ".join(names)
+        return u" / ".join(names)
 
-
+@python_2_unicode_compatible
 class Account(models.Model):
+    """Handles holding pots of money."""
+
     # Metadata
     name = models.CharField(
         max_length=128, unique=True, null=True, blank=True)
     description = models.TextField(
         null=True, blank=True, help_text=_(
-            "This text is shown to customers during checkout"))
+            u"This text is shown to customers during checkout"))
     account_type = models.ForeignKey(
         'AccountType', related_name='accounts', null=True)
 
@@ -88,8 +101,14 @@ class Account(models.Model):
     # Track the status of a account - this is often used so that expired
     # account can have their money transferred back to some parent account and
     # then be closed.
-    OPEN, FROZEN, CLOSED = 'Open', 'Frozen', 'Closed'
-    status = models.CharField(max_length=32, default=OPEN)
+    OPEN, FROZEN, CLOSED = u'Open', u'Frozen', u'Closed'
+    ACCOUNT_STATUSES = (
+        (OPEN, _(u'open')),
+        (FROZEN, _(u'frozen')),
+        (CLOSED, _(u'closed'))
+    )
+    status = models.CharField(max_length=32, default=OPEN,
+        choices=ACCOUNT_STATUSES)
 
     # This is the limit to which the account can go into debt.  The default is
     # zero which means the account cannot run a negative balance.  A 'source'
@@ -114,7 +133,7 @@ class Account(models.Model):
     # pay for shipping)
     can_be_used_for_non_products = models.BooleanField(
         default=True,
-        help_text=("Whether this account can be used to pay for "
+        help_text=_(u"Whether this account can be used to pay for "
                    "shipping and other charges"))
 
     date_created = models.DateTimeField(auto_now_add=True)
@@ -126,14 +145,21 @@ class Account(models.Model):
     class Meta:
         abstract = True
 
-    def __unicode__(self):
+    def __str__ (self):
         if self.code:
             return self.code
         if self.name:
             return self.name
-        return 'Anonymous'
+        if self.primary_user:
+            return u"{0} #{1}".format(self.primary_user, self.pk)
+        return _(u'Anonymous Account')
 
     def is_active(self):
+        """Returns whether or not the account is active. This is dependant on
+        the start/end date fiels. If both are `None`, this Account is active.
+        If they fall outside of the current time (inclusive) then the Account
+        is not active."""
+
         if self.start_date is None and self.end_date is None:
             return True
         now = timezone.now()
@@ -144,6 +170,8 @@ class Account(models.Model):
         return self.start_date <= now < self.end_date
 
     def save(self, *args, **kwargs):
+        """Saves the model first converting the code to uppercase and
+        reevaluating the balance."""
         if self.code:
             self.code = self.code.upper()
         # Ensure the balance is always correct when saving
@@ -151,15 +179,21 @@ class Account(models.Model):
         return super(Account, self).save(*args, **kwargs)
 
     def _balance(self):
-        aggregates = self.transactions.aggregate(sum=Sum('amount'))
-        sum = aggregates['sum']
-        return D('0.00') if sum is None else sum
+        """Aggregates all transactions on this account and returns a Decimal
+        number for the current balance."""
+        aggregates = self.transactions.aggregate(total=Sum('amount'))
+        total = aggregates['total']
+        return D('0.00') if total is None else total
 
     def num_transactions(self):
+        """Convinence function to return the number of transactions posted to
+        this account."""
         return self.transactions.all().count()
 
     @property
     def has_credit_limit(self):
+        """True/False convinence function for testing if a credit limit has
+        been set on this account."""
         return self.credit_limit is not None
 
     def is_debit_permitted(self, amount):
@@ -195,12 +229,15 @@ class Account(models.Model):
         return min(range_total, self.balance)
 
     def is_open(self):
+        """Returns if this account is considered open."""
         return self.status == self.__class__.OPEN
 
     def is_closed(self):
+        """Returns if this account is considered closed."""
         return self.status == self.__class__.CLOSED
 
     def is_frozen(self):
+        """Returns if this account is considered frozen."""
         return self.status == self.__class__.FROZEN
 
     def can_be_authorised_by(self, user=None):
@@ -309,6 +346,7 @@ class PostingManager(models.Manager):
                 msg % (amount, source.id))
 
 
+@python_2_unicode_compatible
 class Transfer(models.Model):
     """
     A transfer of funds between two accounts.
@@ -349,7 +387,7 @@ class Transfer(models.Model):
     # account transactions.
     objects = PostingManager()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.reference
 
     class Meta:
@@ -357,7 +395,7 @@ class Transfer(models.Model):
         ordering = ('-date_created',)
 
     def delete(self, *args, **kwargs):
-        raise RuntimeError("Transfers cannot be deleted")
+        raise RuntimeError(u"Transfers cannot be deleted")
 
     def save(self, *args, **kwargs):
         # Store audit information about authorising user (if one is set)
@@ -412,6 +450,7 @@ class Transfer(models.Model):
                 kwargs={'reference': self.reference})}
 
 
+@python_2_unicode_compatible
 class Transaction(models.Model):
     # Every transfer of money should create two rows in this table.
     # (a) the debit from the source account
@@ -426,7 +465,7 @@ class Transaction(models.Model):
     amount = models.DecimalField(decimal_places=2, max_digits=12)
     date_created = models.DateTimeField(auto_now_add=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return u"Ref: %s, amount: %.2f" % (
             self.transfer.reference, self.amount)
 
@@ -438,6 +477,7 @@ class Transaction(models.Model):
         raise RuntimeError("Transactions cannot be deleted")
 
 
+@python_2_unicode_compatible
 class IPAddressRecord(models.Model):
     ip_address = models.IPAddressField(_("IP address"), unique=True)
     total_failures = models.PositiveIntegerField(default=0)
@@ -459,6 +499,9 @@ class IPAddressRecord(models.Model):
         abstract = True
         verbose_name = _("IP address record")
         verbose_name_plural = _("IP address records")
+
+    def __str__ (self):
+        return self.ip_address
 
     def increment_failures(self):
         self.total_failures += 1
