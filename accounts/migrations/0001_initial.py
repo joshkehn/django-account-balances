@@ -1,229 +1,99 @@
 # -*- coding: utf-8 -*-
-import datetime
-from django.conf import settings
-from south.db import db
-from south.v2 import SchemaMigration
-from django.db import models
+from __future__ import unicode_literals
 
-# Import style and migration updates from http://kevindias.com/writing/django-custom-user-models-south-and-reusable-apps/
-# Save User import for Django < 1.5
-try:
-    from django.contrib.auth import get_user_model
-except:
-    from django.contrib.auth.models import User
-else:
-    User = get_user_model()
-
-# With the default User model these will be 'auth.User' and 'auth.user'
-# so instead of using orm['auth.User'] we can use orm[user_orm_label]
-user_orm_label = '%s.%s' % (User._meta.app_label, User._meta.object_name)
-user_model_label = '%s.%s' % (User._meta.app_label, User._meta.module_name)
-
-class Migration(SchemaMigration):
-
-    def forwards(self, orm):
-        # Adding model 'AccountType'
-        db.create_table(u'accounts_accounttype', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('path', self.gf('django.db.models.fields.CharField')(unique=True, max_length=255)),
-            ('depth', self.gf('django.db.models.fields.PositiveIntegerField')()),
-            ('numchild', self.gf('django.db.models.fields.PositiveIntegerField')(default=0)),
-            ('code', self.gf('django.db.models.fields.CharField')(max_length=128, unique=True, null=True, blank=True)),
-            ('name', self.gf('django.db.models.fields.CharField')(max_length=128)),
-        ))
-        db.send_create_signal(u'accounts', ['AccountType'])
-
-        # Adding model 'Account'
-        db.create_table(u'accounts_account', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('name', self.gf('django.db.models.fields.CharField')(max_length=128, unique=True, null=True, blank=True)),
-            ('description', self.gf('django.db.models.fields.TextField')(null=True, blank=True)),
-            ('account_type', self.gf('django.db.models.fields.related.ForeignKey')(related_name='accounts', null=True, to=orm['accounts.AccountType'])),
-            ('code', self.gf('django.db.models.fields.CharField')(max_length=128, unique=True, null=True, blank=True)),
-            ('primary_user', self.gf('django.db.models.fields.related.ForeignKey')(blank=True, related_name='accounts', null=True, on_delete=models.SET_NULL, to=orm[user_orm_label])),
-            ('status', self.gf('django.db.models.fields.CharField')(default='Open', max_length=32)),
-            ('credit_limit', self.gf('django.db.models.fields.DecimalField')(default='0.00', null=True, max_digits=12, decimal_places=2, blank=True)),
-            ('balance', self.gf('django.db.models.fields.DecimalField')(default='0.00', null=True, max_digits=12, decimal_places=2)),
-            ('start_date', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('end_date', self.gf('django.db.models.fields.DateTimeField')(null=True, blank=True)),
-            ('can_be_used_for_non_products', self.gf('django.db.models.fields.BooleanField')(default=True)),
-            ('date_created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
-        ))
-        db.send_create_signal(u'accounts', ['Account'])
-
-        # Adding model 'Transfer'
-        db.create_table(u'accounts_transfer', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('reference', self.gf('django.db.models.fields.CharField')(max_length=64, unique=True, null=True)),
-            ('source', self.gf('django.db.models.fields.related.ForeignKey')(related_name='source_transfers', to=orm['accounts.Account'])),
-            ('destination', self.gf('django.db.models.fields.related.ForeignKey')(related_name='destination_transfers', to=orm['accounts.Account'])),
-            ('amount', self.gf('django.db.models.fields.DecimalField')(max_digits=12, decimal_places=2)),
-            ('parent', self.gf('django.db.models.fields.related.ForeignKey')(related_name='related_transfers', null=True, to=orm['accounts.Transfer'])),
-            ('merchant_reference', self.gf('django.db.models.fields.CharField')(max_length=128, null=True)),
-            ('description', self.gf('django.db.models.fields.CharField')(max_length=256, null=True)),
-            ('user', self.gf('django.db.models.fields.related.ForeignKey')(related_name='transfers', null=True, on_delete=models.SET_NULL, to=orm[user_orm_label])),
-            ('username', self.gf('django.db.models.fields.CharField')(max_length=128)),
-            ('date_created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
-        ))
-        db.send_create_signal(u'accounts', ['Transfer'])
-
-        # Adding model 'Transaction'
-        db.create_table(u'accounts_transaction', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('transfer', self.gf('django.db.models.fields.related.ForeignKey')(related_name='transactions', to=orm['accounts.Transfer'])),
-            ('account', self.gf('django.db.models.fields.related.ForeignKey')(related_name='transactions', to=orm['accounts.Account'])),
-            ('amount', self.gf('django.db.models.fields.DecimalField')(max_digits=12, decimal_places=2)),
-            ('date_created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
-        ))
-        db.send_create_signal(u'accounts', ['Transaction'])
-
-        # Adding unique constraint on 'Transaction', fields ['transfer', 'account']
-        db.create_unique(u'accounts_transaction', ['transfer_id', 'account_id'])
-
-        # Adding model 'IPAddressRecord'
-        db.create_table(u'accounts_ipaddressrecord', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('ip_address', self.gf('django.db.models.fields.IPAddressField')(unique=True, max_length=15)),
-            ('total_failures', self.gf('django.db.models.fields.PositiveIntegerField')(default=0)),
-            ('consecutive_failures', self.gf('django.db.models.fields.PositiveIntegerField')(default=0)),
-            ('date_created', self.gf('django.db.models.fields.DateTimeField')(auto_now_add=True, blank=True)),
-            ('date_last_failure', self.gf('django.db.models.fields.DateTimeField')(null=True)),
-        ))
-        db.send_create_signal(u'accounts', ['IPAddressRecord'])
-
-        # Adding model 'AccountSecondaryUsers'
-        db.create_table(u'accounts_accountsecondaryusers', (
-            (u'id', self.gf('django.db.models.fields.AutoField')(primary_key=True)),
-            ('account', self.gf('django.db.models.fields.related.ForeignKey')(to=orm['accounts.Account'])),
-            ('user', self.gf('django.db.models.fields.related.ForeignKey')(to=orm[user_orm_label])),
-        ))
-        db.send_create_signal(u'accounts', ['AccountSecondaryUsers'])
+from django.db import models, migrations
+from decimal import Decimal
 
 
-    def backwards(self, orm):
-        # Removing unique constraint on 'Transaction', fields ['transfer', 'account']
-        db.delete_unique(u'accounts_transaction', ['transfer_id', 'account_id'])
+class Migration(migrations.Migration):
 
-        # Deleting model 'AccountType'
-        db.delete_table(u'accounts_accounttype')
+    dependencies = [
+    ]
 
-        # Deleting model 'Account'
-        db.delete_table(u'accounts_account')
-
-        # Deleting model 'Transfer'
-        db.delete_table(u'accounts_transfer')
-
-        # Deleting model 'Transaction'
-        db.delete_table(u'accounts_transaction')
-
-        # Deleting model 'IPAddressRecord'
-        db.delete_table(u'accounts_ipaddressrecord')
-
-        # Deleting model 'AccountSecondaryUsers'
-        db.delete_table(u'accounts_accountsecondaryusers')
-
-
-    models = {
-        u'accounts.account': {
-            'Meta': {'object_name': 'Account'},
-            'account_type': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'accounts'", 'null': 'True', 'to': u"orm['accounts.AccountType']"}),
-            'balance': ('django.db.models.fields.DecimalField', [], {'default': "'0.00'", 'null': 'True', 'max_digits': '12', 'decimal_places': '2'}),
-            'can_be_used_for_non_products': ('django.db.models.fields.BooleanField', [], {'default': 'True'}),
-            'code': ('django.db.models.fields.CharField', [], {'max_length': '128', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'credit_limit': ('django.db.models.fields.DecimalField', [], {'default': "'0.00'", 'null': 'True', 'max_digits': '12', 'decimal_places': '2', 'blank': 'True'}),
-            'date_created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
-            'description': ('django.db.models.fields.TextField', [], {'null': 'True', 'blank': 'True'}),
-            'end_date': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '128', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'primary_user': ('django.db.models.fields.related.ForeignKey', [], {'blank': 'True', 'related_name': "'accounts'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['{}']".format(user_orm_label)}),
-            'secondary_users': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['{}']".format(user_orm_label), 'symmetrical': 'False', 'through': u"orm['accounts.AccountSecondaryUsers']", 'blank': 'True'}),
-            'start_date': ('django.db.models.fields.DateTimeField', [], {'null': 'True', 'blank': 'True'}),
-            'status': ('django.db.models.fields.CharField', [], {'default': "'Open'", 'max_length': '32'})
-        },
-        u'accounts.accountsecondaryusers': {
-            'Meta': {'object_name': 'AccountSecondaryUsers'},
-            'account': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['accounts.Account']"}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['{}']".format(user_orm_label)})
-        },
-        u'accounts.accounttype': {
-            'Meta': {'object_name': 'AccountType'},
-            'code': ('django.db.models.fields.CharField', [], {'max_length': '128', 'unique': 'True', 'null': 'True', 'blank': 'True'}),
-            'depth': ('django.db.models.fields.PositiveIntegerField', [], {}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '128'}),
-            'numchild': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
-            'path': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '255'})
-        },
-        u'accounts.ipaddressrecord': {
-            'Meta': {'object_name': 'IPAddressRecord'},
-            'consecutive_failures': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'}),
-            'date_created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
-            'date_last_failure': ('django.db.models.fields.DateTimeField', [], {'null': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'ip_address': ('django.db.models.fields.IPAddressField', [], {'unique': 'True', 'max_length': '15'}),
-            'total_failures': ('django.db.models.fields.PositiveIntegerField', [], {'default': '0'})
-        },
-        u'accounts.transaction': {
-            'Meta': {'unique_together': "(('transfer', 'account'),)", 'object_name': 'Transaction'},
-            'account': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'transactions'", 'to': u"orm['accounts.Account']"}),
-            'amount': ('django.db.models.fields.DecimalField', [], {'max_digits': '12', 'decimal_places': '2'}),
-            'date_created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'transfer': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'transactions'", 'to': u"orm['accounts.Transfer']"})
-        },
-        u'accounts.transfer': {
-            'Meta': {'ordering': "('-date_created',)", 'object_name': 'Transfer'},
-            'amount': ('django.db.models.fields.DecimalField', [], {'max_digits': '12', 'decimal_places': '2'}),
-            'date_created': ('django.db.models.fields.DateTimeField', [], {'auto_now_add': 'True', 'blank': 'True'}),
-            'description': ('django.db.models.fields.CharField', [], {'max_length': '256', 'null': 'True'}),
-            'destination': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'destination_transfers'", 'to': u"orm['accounts.Account']"}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'merchant_reference': ('django.db.models.fields.CharField', [], {'max_length': '128', 'null': 'True'}),
-            'parent': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'related_transfers'", 'null': 'True', 'to': u"orm['accounts.Transfer']"}),
-            'reference': ('django.db.models.fields.CharField', [], {'max_length': '64', 'unique': 'True', 'null': 'True'}),
-            'source': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'source_transfers'", 'to': u"orm['accounts.Account']"}),
-            'user': ('django.db.models.fields.related.ForeignKey', [], {'related_name': "'transfers'", 'null': 'True', 'on_delete': 'models.SET_NULL', 'to': u"orm['{}']".format(user_orm_label)}),
-            'username': ('django.db.models.fields.CharField', [], {'max_length': '128'})
-        },
-        u'auth.group': {
-            'Meta': {'object_name': 'Group'},
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'unique': 'True', 'max_length': '80'}),
-            'permissions': ('django.db.models.fields.related.ManyToManyField', [], {'to': u"orm['auth.Permission']", 'symmetrical': 'False', 'blank': 'True'})
-        },
-        u'auth.permission': {
-            'Meta': {'ordering': "(u'content_type__app_label', u'content_type__model', u'codename')", 'unique_together': "((u'content_type', u'codename'),)", 'object_name': 'Permission'},
-            'codename': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'content_type': ('django.db.models.fields.related.ForeignKey', [], {'to': u"orm['contenttypes.ContentType']"}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '50'})
-        },
-
-        # Declare this dynamically so it will work with custom user models.
-        user_model_label: {
-            'Meta': {
-                'object_name': User.__name__,
-                'db_table': "'%s'" % User._meta.db_table
+    operations = [
+        migrations.CreateModel(
+            name='Account',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('name', models.CharField(max_length=128, unique=True, null=True, blank=True)),
+                ('description', models.TextField(help_text='This text is shown to customers during checkout', null=True, blank=True)),
+                ('code', models.CharField(max_length=128, unique=True, null=True, blank=True)),
+                ('status', models.CharField(default=b'Open', max_length=32)),
+                ('credit_limit', models.DecimalField(default=Decimal('0.00'), null=True, max_digits=12, decimal_places=2, blank=True)),
+                ('balance', models.DecimalField(default=Decimal('0.00'), null=True, max_digits=12, decimal_places=2)),
+                ('start_date', models.DateTimeField(null=True, blank=True)),
+                ('end_date', models.DateTimeField(null=True, blank=True)),
+                ('can_be_used_for_non_products', models.BooleanField(default=True, help_text=b'Whether this account can be used to pay for shipping and other charges')),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                'abstract': False,
             },
-            User._meta.pk.attname: (
-                'django.db.models.fields.AutoField', [],
-                {'primary_key': 'True',
-                'db_column': "'%s'" % User._meta.pk.column}
-            ),
-        },
-        u'contenttypes.contenttype': {
-            'Meta': {'ordering': "('name',)", 'unique_together': "(('app_label', 'model'),)", 'object_name': 'ContentType', 'db_table': "'django_content_type'"},
-            'app_label': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'}),
-            'model': ('django.db.models.fields.CharField', [], {'max_length': '100'}),
-            'name': ('django.db.models.fields.CharField', [], {'max_length': '100'})
-        },
-        u'django_facebook.facebookcustomuser': {
-            'Meta': {'object_name': 'FacebookCustomUser'},
-            u'id': ('django.db.models.fields.AutoField', [], {'primary_key': 'True'})
-        }
-    }
-
-    complete_apps = ['accounts']
+        ),
+        migrations.CreateModel(
+            name='AccountSecondaryUsers',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+            ],
+        ),
+        migrations.CreateModel(
+            name='AccountType',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('path', models.CharField(unique=True, max_length=255)),
+                ('depth', models.PositiveIntegerField()),
+                ('numchild', models.PositiveIntegerField(default=0)),
+                ('code', models.CharField(max_length=128, unique=True, null=True, blank=True)),
+                ('name', models.CharField(max_length=128)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='IPAddressRecord',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('ip_address', models.IPAddressField(unique=True, verbose_name='IP address')),
+                ('total_failures', models.PositiveIntegerField(default=0)),
+                ('consecutive_failures', models.PositiveIntegerField(default=0)),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+                ('date_last_failure', models.DateTimeField(null=True)),
+            ],
+            options={
+                'abstract': False,
+                'verbose_name': 'IP address record',
+                'verbose_name_plural': 'IP address records',
+            },
+        ),
+        migrations.CreateModel(
+            name='Transaction',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('amount', models.DecimalField(max_digits=12, decimal_places=2)),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+            ],
+            options={
+                'abstract': False,
+            },
+        ),
+        migrations.CreateModel(
+            name='Transfer',
+            fields=[
+                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('reference', models.CharField(max_length=64, unique=True, null=True)),
+                ('amount', models.DecimalField(max_digits=12, decimal_places=2)),
+                ('merchant_reference', models.CharField(max_length=128, null=True)),
+                ('description', models.CharField(max_length=256, null=True)),
+                ('username', models.CharField(max_length=128)),
+                ('date_created', models.DateTimeField(auto_now_add=True)),
+                ('destination', models.ForeignKey(related_name='destination_transfers', to='accounts.Account')),
+                ('parent', models.ForeignKey(related_name='related_transfers', to='accounts.Transfer', null=True)),
+                ('source', models.ForeignKey(related_name='source_transfers', to='accounts.Account')),
+            ],
+            options={
+                'ordering': ('-date_created',),
+                'abstract': False,
+            },
+        ),
+    ]
