@@ -300,8 +300,8 @@ class PostingManager(models.Manager):
         # Write out transfer (which involves multiple writes).  We use a
         # database transaction to ensure that all get written out correctly.
         self.verify_transfer(source, destination, amount, user)
-        with transaction.commit_on_success():
-            transfer = self.get_query_set().create(
+        with transaction.atomic():
+            transfer = self.get_queryset().create(
                 source=source,
                 destination=destination,
                 amount=amount,
